@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { io, Socket } from "socket.io-client";
+import mqtt from "mqtt";
 import { Calendar, User, Check, Users, Sparkles, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -16,45 +16,75 @@ const AVAILABLE_DATES = [
   "2月27日"
 ];
 
+const TOPIC_PREFIX = "dream-vote-app-v1-20260220/votes";
+
 export default function App() {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [client, setClient] = useState<mqtt.MqttClient | null>(null);
   const [username, setUsername] = useState(() => localStorage.getItem("vote_username") || "");
   const [isEditingName, setIsEditingName] = useState(!username);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [allVotes, setAllVotes] = useState<VoteRecord[]>([]);
+  const [allVotesMap, setAllVotesMap] = useState<Record<string, string[]>>({});
   const [tempName, setTempName] = useState(username);
+  const [hasSynced, setHasSynced] = useState(false);
 
   useEffect(() => {
-    const newSocket = io();
-    setSocket(newSocket);
+    // Connect to a free, public MQTT broker over secure WebSockets
+    const mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 
-    newSocket.on("init_votes", (data: VoteRecord[]) => {
-      setAllVotes(data);
-      const myVote = data.find(v => v.username === username);
-      if (myVote) {
-        setSelectedDates(myVote.dates);
+    mqttClient.on("connect", () => {
+      console.log("Connected to public MQTT broker");
+      // Subscribe to all votes
+      mqttClient.subscribe(`${TOPIC_PREFIX}/+`);
+    });
+
+    mqttClient.on("message", (topic, message) => {
+      const msgUsername = topic.split("/").pop();
+      if (msgUsername) {
+        try {
+          const dates = JSON.parse(message.toString());
+          setAllVotesMap(prev => ({ ...prev, [msgUsername]: dates }));
+        } catch (e) {
+          console.error("Failed to parse message", e);
+        }
       }
     });
 
-    newSocket.on("update_votes", (data: VoteRecord[]) => {
-      setAllVotes(data);
-    });
+    setClient(mqttClient);
 
     return () => {
-      newSocket.close();
+      mqttClient.end();
     };
-  }, [username]);
+  }, []);
+
+  // Sync initial dates when user connects and their data arrives
+  useEffect(() => {
+    if (username && allVotesMap[username] && !hasSynced) {
+      setSelectedDates(allVotesMap[username]);
+      setHasSynced(true);
+    }
+  }, [allVotesMap, username, hasSynced]);
+
+  const allVotes = useMemo(() => {
+    return Object.entries(allVotesMap).map(([u, dates]) => ({
+      username: u,
+      dates
+    }));
+  }, [allVotesMap]);
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (tempName.trim()) {
-      setUsername(tempName.trim());
-      localStorage.setItem("vote_username", tempName.trim());
+      const newName = tempName.trim();
+      setUsername(newName);
+      localStorage.setItem("vote_username", newName);
       setIsEditingName(false);
-      const myVote = allVotes.find(v => v.username === tempName.trim());
-      if (myVote) {
-        setSelectedDates(myVote.dates);
+      
+      if (allVotesMap[newName]) {
+        setSelectedDates(allVotesMap[newName]);
+      } else {
+        setSelectedDates([]);
       }
+      setHasSynced(true);
     }
   };
 
@@ -65,8 +95,9 @@ export default function App() {
     
     setSelectedDates(newDates);
     
-    if (socket && username) {
-      socket.emit("submit_vote", { username, dates: newDates });
+    if (client && username) {
+      // Publish with retain: true so late joiners can see the votes
+      client.publish(`${TOPIC_PREFIX}/${username}`, JSON.stringify(newDates), { retain: true });
     }
   };
 
