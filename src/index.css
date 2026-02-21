@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Syne:wght@400;700;800&display=swap');
+
+@theme {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", sans-serif;
+  --color-vapor-purple: #9d8df1;
+  --color-vapor-pink: #ff85a1;
+  --color-vapor-cyan: #00f5d4;
+  --color-vapor-dark: #1a1a2e;
+}
+
+@layer base {
+  body {
+    @apply bg-vapor-dark text-white overflow-x-hidden;
+    background-image: radial-gradient(circle at 50% 50%, #2a1b3d 0%, #1a1a2e 100%);
+  }
+}
+
+@layer components {
+  .vapor-grid {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      linear-gradient(transparent 0%, rgba(157, 141, 241, 0.2) 2%, transparent 3%),
+      linear-gradient(90deg, transparent 0%, rgba(157, 141, 241, 0.2) 2%, transparent 3%);
+    background-size: 60px 60px;
+    transform: perspective(500px) rotateX(60deg);
+    transform-origin: center bottom;
+    animation: grid-scroll 20s linear infinite;
+    z-index: -1;
+    mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+  }
+
+  .vapor-sun {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 300px;
+    background: linear-gradient(to bottom, #ff85a1 0%, #f9c74f 100%);
+    border-radius: 50%;
+    z-index: -2;
+    box-shadow: 0 0 100px rgba(255, 133, 161, 0.5);
+    mask-image: linear-gradient(to bottom, 
+      black 0%, black 50%, 
+      transparent 52%, black 54%, 
+      transparent 58%, black 60%, 
+      transparent 66%, black 68%, 
+      transparent 76%, black 78%, 
+      transparent 88%, black 90%
+    );
+  }
+
+  .vapor-grain {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Ffilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+}
+
+@keyframes grid-scroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 60px; }
+}
